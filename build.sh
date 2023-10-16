@@ -7,8 +7,12 @@
 # https://www.thorsten-hans.com/how-to-build-multi-arch-docker-images-with-ease/
 #
 
+if [ -r $(dirname $0)/.env ] ; then
+  source $(dirname $0)/.env
+fi
+
 PLATFORM=${PLATFORM:-linux/arm64,linux/amd64}
-NAME=${NAME:-alpine-monit-sevpn}
+NAME=${NAME:-alpine-monit}
 
 function help() {
   cat<<EOF
@@ -42,6 +46,14 @@ function platform_build_docker() {
 
   # Need for multiarch
   # docker buildx create --name mybuilder --bootstrap --use
+
+  # git_rev=$(git rev-parse --short HEAD)
+  git_rev=$(git log --pretty=oneline --abbrev-commit)
+  build_date=$(date +"%Y-%m-%d %H:%M:%S")
+
+  echo "export GIT_REV=\"$git_rev\"" > ./docker/prerun.sh
+  echo "export BUILD_DATE=\"$build_date\"" >> ./docker/prerun.sh
+  echo "export IMAGE_NAME=\"$NAME\"" >> ./docker/prerun.sh
 
   echo
   echo "Building Docker Image"

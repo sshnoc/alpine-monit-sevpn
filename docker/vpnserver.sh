@@ -118,9 +118,6 @@ function get_external_ip() {
 
 # Custom Init Functions
 function prerun() {
-  # Network Init
-  mkdir /dev/net
-
   if [ -r ${DATA_DIR}/prerun.sh ] ; then
     _info "Prerun script found. Running..."
     source ${DATA_DIR}/prerun.sh
@@ -154,6 +151,10 @@ function admin_password() {
   echo -e "ServerPasswordSet $VPN_PASSWORD\nFlush\n" > ${cmd_file}
   echo "$VPN_PASSWORD" > $admin
   _info "New VPN Adminstrator Password: ${VPN_PASSWORD}"
+}
+
+function init_network() {
+  mkdir /dev/net
 }
 
 function init_certificate() {
@@ -287,10 +288,12 @@ function usage() {
 }
 
 function start_vpnserver() {
+  prerun
+
   prepare_runtime
   check_vpn_server
 
-  prerun
+  init_network
 
   get_external_ip
   admin_password
@@ -323,7 +326,7 @@ function main() {
 
   if [ "${action}" == "--restart" ] ; then
     stop_vpnserver_bin
-    sleep 2
+    sleep 1
     start_vpnserver
     exit $?
   fi
