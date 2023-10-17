@@ -48,7 +48,7 @@ function platform_build_docker() {
   # docker buildx create --name mybuilder --bootstrap --use
 
   # git_rev=$(git rev-parse --short HEAD)
-  git_rev=$(git log --pretty=oneline --abbrev-commit)
+  git_rev=$(git log --pretty=oneline --abbrev-commit | head -1)
   build_date=$(date +"%Y-%m-%d %H:%M:%S")
 
   echo "export GIT_REV=\"$git_rev\"" > ./docker/prerun.sh
@@ -59,6 +59,9 @@ function platform_build_docker() {
   echo "Building Docker Image"
   echo "Command: docker build $@ --platform ${PLATFORM} -t ${_name} -f ${_dockerfile} ${_target_dir}"
   docker build $@ --platform ${PLATFORM} -t ${_name} -f ${_dockerfile} ${_target_dir}
+  echo
+  image_size=$(docker inspect -f "{{ .Size }}" ${_name} | numfmt --to=si)
+  echo "Image Size: $image_size"
   echo
 }
 

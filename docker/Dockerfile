@@ -3,7 +3,8 @@
 
 # BUILDER
 # FROM --platform=$BUILDPLATFORM alpine-core as builder
-FROM alpine:3.18 AS builder
+# FROM alpine:3.18 AS builder
+FROM alpine:edge AS builder
 
 RUN mkdir /usr/local/src && \
         apk update && apk add binutils --no-cache \

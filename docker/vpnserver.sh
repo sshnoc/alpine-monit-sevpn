@@ -33,8 +33,14 @@ function vpn_server_cmd_nopass() {
 }
 
 # Init Functions
+function prerun() {
+  if [ -r ${DATA_DIR}/prerun.sh ] ; then
+    _info "Prerun script found. Running..."
+    source ${DATA_DIR}/prerun.sh
+  fi
+}
+
 function prepare_runtime() {
-  local cmd_file=${DATA_DIR}/init.cmd
 
   if [ ! -d ${DATA_DIR} ] ; then
     _die "${DATA_DIR} not found. Start container with a /data mount."
@@ -95,9 +101,6 @@ function prepare_runtime() {
   fi
   ln -s ${server_conf_backup} ${VPN_DIR}/backup.vpn_server.config
 
-  if [ -r ${cmd_file} ] ; then
-    rm ${cmd_file}
-  fi
 }
 
 function check_vpn_server() {
@@ -115,21 +118,6 @@ function get_external_ip() {
   echo $EXTERNAL_IP > ${DATA_DIR}/external_ip.txt
   _info "VPN Server External Address: $EXTERNAL_IP"
 }
-
-# Custom Init Functions
-function prerun() {
-  if [ -r ${DATA_DIR}/prerun.sh ] ; then
-    _info "Prerun script found. Running..."
-    source ${DATA_DIR}/prerun.sh
-  fi
-}
-
-# function postrun() {
-#   if [ -r ${DATA_DIR}/postrun.sh ] ; then
-#     _info "Postrun script found. Running..."
-#     source ${DATA_DIR}/postrun.sh
-#   fi
-# }
 
 function admin_password() {
   local admin=${DATA_DIR}/admin.txt
@@ -162,10 +150,6 @@ function init_certificate() {
   local crt_file=${DATA_DIR}/server.crt
   local cmd_file=${DATA_DIR}/init.cmd
 
-  if [ -r ${cmd_file} ] ; then
-    rm ${cmd_file}
-  fi
-
   if [ ! -r $key_file ] || [ ! -r $crt_file ] ; then
     _warn "Server certificate not found. Using defaults."
     return
@@ -180,36 +164,27 @@ function init_wireguard() {
   local key_file=${DATA_DIR}/wg_key.txt
   local psk_file=${DATA_DIR}/wg_psk.txt
   local cmd_file=${DATA_DIR}/init.cmd
-  local is_cmd=false
-
-  if [ -r ${cmd_file}  ] ; then
-    rm ${cmd_file}
-  fi
 
   if [ ! -r ${key_file} ] ; then
       vpn_tools GenX25519 > ${key_file}
       _warn "New Wireguard key created"
-      is_cmd=true
   fi
 
   if [ ! -r ${psk_file} ] ; then
       vpn_tools GenX25519 > ${psk_file}
       _warn "New Wireguard psk created"
-      is_cmd=true
   fi
 
   local key=$(cat ${key_file} | grep Private | cut -d " " -f 3)
   local pub=$(cat ${key_file} | grep Public | cut -d " " -f 3)
   local psk=$(cat ${psk_file} | grep Private | cut -d " " -f 3)
 
-  if $is_cmd ; then
-    cat >> ${cmd_file} <<EOF
+  cat >> ${cmd_file} <<EOF
 ProtoOptionsSet wireguard /NAME:Enabled /VALUE:True
 ProtoOptionsSet wireguard /NAME:PrivateKey /VALUE:$key
 ProtoOptionsSet wireguard /NAME:PresharedKey /VALUE:$psk
 Flush
 EOF
-  fi
 
   _info " Wireguard Public Key: $pub"
   _info "        Wireguard PSK: $psk"
@@ -259,15 +234,16 @@ function init_vpnserver() {
   local cmd_file=${DATA_DIR}/init.cmd
   local password_cmd=${DATA_DIR}/password.cmd
 
-  # while true ; do
-  #   _info "Waiting for the VPN Server to be online..."
-  #   netstat -tpane | grep 5555 &> /dev/null
-  #   if [ $? -gt 0 ] ; then
-  #       sleep 2
-  #   else
-  #     break
-  #   fi
-  # done
+  sleep 1
+  while true ; do
+    _info "Waiting for the VPN Server to be online..."
+    netstat -tpane | grep 5555 &> /dev/null
+    if [ $? -gt 0 ] ; then
+        sleep 2
+    else
+      break
+    fi
+  done
 
   # echo -e "SyslogEnable 3 /HOST:localhost:514\nFlush\n" > ${cmd_file}
 
@@ -297,12 +273,17 @@ function start_vpnserver() {
 
   get_external_ip
   admin_password
+
+  local cmd_file=${DATA_DIR}/init.cmd
+  if [ -r ${cmd_file}  ] ; then
+    rm ${cmd_file}
+  fi
+
   init_certificate
   init_wireguard
 
   # exec_vpnserver_bin
   start_vpnserver_bin
-  sleep 1
   init_vpnserver
 }
 
